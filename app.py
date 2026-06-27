@@ -4,29 +4,48 @@ Toolforge Manager Backend App
 Main entry point for the Flask-based backend server.
 """
 
+import os
+
+from dotenv import load_dotenv
 from flask import Flask, jsonify
+
+# Load environment variables from .env (SSH key path, bastion host, DB creds).
+load_dotenv()
+
 from routes.config import config_bp
 from routes.webservice import webservice_bp
 from routes.deploy import deploy_bp
+from routes.tools import tools_bp
 
-app = Flask(__name__)
+# Serve the Deployr frontend from the same origin as the API (no CORS, single
+# entry point). Static files (styles.css, app.js, data.js) resolve from "/".
+FRONTEND = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
+app = Flask(__name__, static_folder=FRONTEND, static_url_path="")
 
 # Register Blueprints
 app.register_blueprint(config_bp)
 app.register_blueprint(webservice_bp)
 app.register_blueprint(deploy_bp)
+app.register_blueprint(tools_bp)
 
 @app.route("/")
 def index():
-    """Serves a status message for the API."""
+    """Serves the Deployr dashboard."""
+    return app.send_static_file("index.html")
+
+@app.route("/api")
+def api_info():
+    """API discovery banner."""
     return jsonify({
         "status": "ok",
         "message": "Toolforge Manager API is running",
         "endpoints": [
-            {"path": "/api/config", "methods": ["GET", "POST"]},
+            {"path": "/api/tools", "methods": ["GET", "POST"]},
+            {"path": "/api/tools/inspect", "methods": ["POST"]},
+            {"path": "/api/tools/<id>", "methods": ["DELETE"]},
             {"path": "/api/test-connection", "methods": ["POST"]},
             {"path": "/api/deploy", "methods": ["POST"]},
-            {"path": "/api/webservice/status", "methods": ["GET"]},
+            {"path": "/api/webservice/status", "methods": ["POST"]},
             {"path": "/api/webservice/control", "methods": ["POST"]}
         ]
     })
